@@ -1,5 +1,6 @@
 .vscode/
 
 # executables
-.obj
-.exe
+*.obj
+*.exe
+*.lib
