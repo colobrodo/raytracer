@@ -1,0 +1,1 @@
+nvcc src/raytracing.cu src/cuda_helper.cu src/bitmap.cu src/parser.cu -o raytracing

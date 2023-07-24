@@ -1,0 +1,1 @@
+cl raytracing.cpp bitmap.cpp model.cpp parser.cpp
