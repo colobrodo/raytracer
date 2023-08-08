@@ -1,4 +1,4 @@
-#include "./include/tiny_obj_loader.h"
+#include "../include/tiny_obj_loader.h"
 
 #include "./model.h"
 
@@ -11,16 +11,18 @@ Model *load_model(const char *filename) {
     std::string err;
     bool success = tinyobj::LoadObj(&attributes, &shapes, &materials, &warn, &err, filename);
     
+    printf("Loading model %s\n", filename);
+
     if (!warn.empty()) {
-        printf("warning loading the obj file: %s", warn.c_str());
+        printf("warning loading the obj file: %s\n", warn.c_str());
     }
     if (!err.empty()) {
-        printf("Error trying to load obj file: %s", err.c_str());
+        printf("Error trying to load obj file: %s\n", err.c_str());
         return nullptr;
     }
 
     if(!success) {
-        printf("Error trying to load obj file: %s", filename);
+        printf("Error trying to load obj file: %s\n", filename);
         return nullptr;
     }
 

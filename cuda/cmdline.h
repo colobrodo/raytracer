@@ -42,7 +42,7 @@ bool parse_command_line(int argc, char *argv[], CommandLineOptions *options) {
 
     for(;argument_index < argc; argument_index++) {
         auto option = argv[argument_index];
-        /*
+        /* // no supported argument parameter for now
         if(strcmp(option, "--sample-rate") == 0) {
             if(!read_int(&options->sample_rate)) {
                 print_error("Missing value for argument \"--sample-rate\" needed an integer\n");
@@ -50,7 +50,7 @@ bool parse_command_line(int argc, char *argv[], CommandLineOptions *options) {
             }
         } else
         */
-        {
+         {
             print_error("");
             printf("Unknow argument option \"%s\"\n", option);
             return false;

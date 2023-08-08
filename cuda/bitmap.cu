@@ -9,10 +9,10 @@ bool save_bitmap(const char *path, const Bitmap *bitmap) {
     unsigned char header[14] = {'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0};
     unsigned char info_header[40] = {40,0,0,0, 0,0,0,0, 0,0,0,0, 1,0, 24,0};
 
-    header[ 2] = (unsigned char)(file_size    );
-    header[ 3] = (unsigned char)(file_size>> 8);
-    header[ 4] = (unsigned char)(file_size>>16);
-    header[ 5] = (unsigned char)(file_size>>24);
+    header[2] = (unsigned char)(file_size    );
+    header[3] = (unsigned char)(file_size >> 8);
+    header[4] = (unsigned char)(file_size >> 16);
+    header[5] = (unsigned char)(file_size >> 24);
 
     info_header[ 4] = (unsigned char)(bitmap->width      );
     info_header[ 5] = (unsigned char)(bitmap->width >>  8);

@@ -67,11 +67,11 @@ __global__ void cast(Scene *scene, curandState *rand_state, char *image_data, fl
     curandState local_rand_state = rand_state[pixel_index];
     curand_init(1984, pixel_index, 0, &local_rand_state);
 
-    
+
     // camera variables (fixed at origin)
     Vec3 cam_position = {0.0f, 0.0f, 0.0f};
     float zoom = -1.f;
-    
+
     Vec3 color = {0.f, 0.f, 0.f};
 
     for(int sample_i = 0; sample_i < N_SAMPLES; sample_i++) {
@@ -94,6 +94,12 @@ __global__ void cast(Scene *scene, curandState *rand_state, char *image_data, fl
               auto hitted_object = result.hitted_object;
               Vec3 diffuse_color = {0.f, 0.f, 0.f};
 
+              if(ray.direction.dot(result.normal) > 0.001) {
+                  // TODO in place operator
+                  // reverse the normal when we it a internal surface
+                  result.normal = result.normal * -1;
+              }
+
               for(int i = 0; i < scene->n_lights; i++) {
                   auto light = scene->lights[i];
                   // check if some object occlude the light
@@ -107,11 +113,6 @@ __global__ void cast(Scene *scene, curandState *rand_state, char *image_data, fl
                           continue;
                       }
                       // here the light is not really occluded, because the object is behind the light
-                  }
-                  if(ray.direction.dot(result.normal) > 0.001) {
-                      // TODO in place operator
-                      // reverse the normal when we it a internal surface
-                      result.normal = result.normal * -1;
                   }
 
                   // add to the diffusion component the diffusion light for this source
@@ -178,7 +179,6 @@ int main(int argc, char *argv[]) {
     // define number of blocks and threads
     dim3 blocks(width / tx + 1, height / ty + 1);
     dim3 threads(tx, ty);
-
 
     // initialize random state, one curandState for each thread
     curandState *d_rand_state;

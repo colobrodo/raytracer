@@ -1,7 +1,7 @@
 #include <iostream>
 #include <stdio.h>
 
- void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line) {
+void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line) {
     if (result) {
         auto error = cudaGetErrorString(result);
         std::cout << "CUDA error = " << static_cast<unsigned int>(result) << " at " <<
@@ -9,6 +9,6 @@
         std::cout << error << '\n';
         // Make sure we call CUDA Device Reset before exiting
         cudaDeviceReset();
-        // exit(99);
+        exit(99);
     }
 }

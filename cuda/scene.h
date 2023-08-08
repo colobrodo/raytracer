@@ -1,11 +1,13 @@
-
 #pragma once
 
 #include <cmath>
 #include <vector>
 
 #include "./vec3.h"
-// #include "./model.h"
+#include "./model.h"
+
+#define __max(a, b) ((a) >= (b) ? (a) : (b))
+#define __min(a, b) ((a) <= (b) ? (a) : (b))
 
 #define EPSILON (0.e-3f)
 
@@ -42,53 +44,51 @@ struct Plane {
 enum SolidType {
     SPHERE,
     PLANE,
-    // MODEL,
+    MODEL,
 };
 
-/*
-// AABB collision for mesh, disabled for now
-auto box_collision = [] (const Box &box, const Ray &ray) {
-    Vec3 dirfrac;
-    dirfrac.x = 1.0f / ray.direction.x;
-    dirfrac.y = 1.0f / ray.direction.y;
-    dirfrac.z = 1.0f / ray.direction.z;
-    // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
-    // r.org is origin of ray
-    float t1 = (box.min.x - ray.origin.x)*dirfrac.x;
-    float t2 = (box.max.x - ray.origin.x)*dirfrac.x;
-    float t3 = (box.min.y - ray.origin.y)*dirfrac.y;
-    float t4 = (box.max.y - ray.origin.y)*dirfrac.y;
-    float t5 = (box.min.z - ray.origin.z)*dirfrac.z;
-    float t6 = (box.max.z - ray.origin.z)*dirfrac.z;
-
-    float tmin = __max(__max(__min(t1, t2), __min(t3, t4)), __min(t5, t6));
-    float tmax = __min(__min(__max(t1, t2), __max(t3, t4)), __max(t5, t6));
-
-    // if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
-    if (tmax < 0) {
-        return false;
-    }
-
-    // if tmin > tmax, ray doesn't intersect AABB
-    if (tmin > tmax) {
-        return false;
-    }
-
-    return true;
-
-};
-*/
 
 struct Solid {
     SolidType type;
     union {
         Sphere sphere;
         Plane plane;
-        // Model model;
+        Model model;
     };
     Material material;
 
-    __host__ __device__ float hit(const Ray &ray) const {
+    __host__ __device__ float hit(const Ray &ray, Vec3 &normal) const {
+        // AABB collision for mesh
+        auto box_collision = [] (const Box &box, const Ray &ray) {
+            Vec3 dirfrac;
+            dirfrac.x = 1.0f / ray.direction.x;
+            dirfrac.y = 1.0f / ray.direction.y;
+            dirfrac.z = 1.0f / ray.direction.z;
+            // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
+            // r.org is origin of ray
+            float t1 = (box.min.x - ray.origin.x)*dirfrac.x;
+            float t2 = (box.max.x - ray.origin.x)*dirfrac.x;
+            float t3 = (box.min.y - ray.origin.y)*dirfrac.y;
+            float t4 = (box.max.y - ray.origin.y)*dirfrac.y;
+            float t5 = (box.min.z - ray.origin.z)*dirfrac.z;
+            float t6 = (box.max.z - ray.origin.z)*dirfrac.z;
+
+            float tmin = __max(__max(__min(t1, t2), __min(t3, t4)), __min(t5, t6));
+            float tmax = __min(__min(__max(t1, t2), __max(t3, t4)), __max(t5, t6));
+
+            // if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
+            if (tmax < 0) {
+                return false;
+            }
+
+            // if tmin > tmax, ray doesn't intersect AABB
+            if (tmin > tmax) {
+                return false;
+            }
+
+            return true;
+        };
+
         switch (type) {
             case SPHERE: {
                 auto oc = ray.origin - sphere.center;
@@ -99,9 +99,10 @@ struct Solid {
 
                 if(discriminant < 0) {
                     return -1;
-                } else {
-                    return (-b - sqrt(discriminant) ) / (2.f * a);
                 }
+                auto t = (-b - sqrt(discriminant) ) / (2.f * a);
+                normal = (ray.at(t) - sphere.center).normalize();
+                return t;
             }
             case PLANE: {
                 auto dv = plane.normal.dot(ray.direction);
@@ -113,19 +114,21 @@ struct Solid {
                 if (t < EPSILON) {
                     return -1;
                 }
+                normal = plane.normal;
                 return t;
             }
-            /*
             case MODEL: {
                 auto closest_t = -1.f;
+                // bounding box collision check
                 if(!box_collision(model.bounding_box, ray)) {
                     return closest_t;
                 }
+
                 for(int i = 0; i < model.n_triangles; i++) {
                     auto triangle = model.triangles[i];
-                    Vec3 v0 = triangle[0],
-                        v1 = triangle[1],
-                        v2 = triangle[2];
+                    Vec3 v0 = triangle.v0,
+                        v1 = triangle.v1,
+                        v2 = triangle.v2;
                     Vec3 v0v1 = v1 - v0;
                     Vec3 v0v2 = v2 - v0;
                     Vec3 pvec = ray.direction.cross(v0v2);
@@ -149,30 +152,17 @@ struct Solid {
 
                     // for first iteration
                     if(t < closest_t || closest_t < 0) {
+                        normal = v0.cross(v1).normalize();
                         closest_t = v0v2.dot(qvec) * invDet;
                     }
                 }
                 return closest_t;
             }
-            */
             default:
                 return -1;
         }
     }
 
-    __host__ __device__ Vec3 get_normal(const Vec3 hit_point) const {
-        switch (type)
-        {
-        case SPHERE:
-            return (hit_point - sphere.center).normalize();
-        case PLANE:
-            return plane.normal;
-        // TODO: get triangle normal
-
-        default:
-            return {0.f, 0.f, 0.f};
-        }
-    }
 };
 
 struct RaycastResult {
@@ -197,10 +187,13 @@ struct Scene {
     __host__ __device__ bool hit(const Ray &ray, RaycastResult &result) const {
         float closest_t = INFINITY;
         Solid *closest_object = nullptr;
+        Vec3 normal_of_hit_point;
         bool found_collision = false;
         for(int i = 0; i < n_solids; i++) {
             auto solid = solids[i];
-            auto t = solid.hit(ray);
+
+            Vec3 normal;
+            auto t = solid.hit(ray, normal);
             // avoid t too small (shadow acne)
             if(t <= EPSILON) {
                 continue;
@@ -209,6 +202,7 @@ struct Scene {
             if(t < closest_t) {
                 found_collision = true;
                 closest_t = t;
+                normal_of_hit_point = normal;
                 closest_object = &solids[i];
             }
         }
@@ -217,7 +211,7 @@ struct Scene {
             // printf("closest_object: %i\n", closest_object);
             result.hitted_object = closest_object;
             result.hit_point = ray.at(closest_t);
-            result.normal = closest_object->get_normal(result.hit_point);
+            result.normal = normal_of_hit_point;
         }
 
         return found_collision;

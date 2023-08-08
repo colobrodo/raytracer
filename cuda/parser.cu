@@ -8,7 +8,7 @@
 /*
 simple format for describing a scene with basic geometries,
 here the following grammar:
-p
+
 
 vec3 := '(' float ',' float ',' float ')'
 
@@ -40,22 +40,48 @@ Scene *make_scene(std::vector<Solid> solids, std::vector<Light> lights) {
     auto scene_size = sizeof(Scene);
     auto solids_size = solids.size() * sizeof(Solid);
     auto lights_size = lights.size() * sizeof(Light);
-    auto total_size = scene_size + solids_size + lights_size;
+    // calculate dimensions of triangle to be allocated after lights array
+    auto triangles_to_allocate = 0;
+    for(auto &solid: solids) {
+        // only solid of model type need to allocate the triangles
+        if(solid.type == MODEL) {
+            triangles_to_allocate += solid.model.n_triangles;
+        }
+    }
+
+    auto triangles_size = triangles_to_allocate * sizeof(Triangle);
+
+    auto total_size = scene_size + solids_size + lights_size + triangles_size;
 
     Scene *scene;
     checkCudaErrors(cudaMallocManaged((void**) &scene, total_size));
     *scene = Scene{};
-    scene->solids = (Solid*) ((void*) scene) + scene_size;
+    scene->solids = (Solid*) (scene + 1);
     for(int i = 0; i < solids.size(); i++) {
         scene->solids[i] = solids[i];
     }
     scene->n_solids = solids.size();
 
-    scene->lights = (Light*) ((void*) scene) + scene_size + solids_size;
+    scene->lights = (Light*) (scene->solids + scene->n_solids);
     for(int i = 0; i < lights.size(); i++) {
         scene->lights[i] = lights[i];
     }
     scene->n_lights = lights.size();
+
+    // coping the memory allocated on the heap on the unified memory
+    auto start_triangles_memory = (Triangle*) (scene->lights + scene->n_lights);
+    for(int i = 0; i < scene->n_solids; i++) {
+        auto &solid = scene->solids[i];
+        if(solid.type != MODEL) continue;
+        auto memsize = solid.model.n_triangles * sizeof(Triangle);
+        checkCudaErrors(cudaMemcpy(start_triangles_memory, solid.model.triangles, memsize, cudaMemcpyHostToDevice));
+        // free(solid.model.triangles);
+        // let the model object point to the new allocated memory
+        solid.model.triangles = start_triangles_memory;
+        start_triangles_memory += solid.model.n_triangles;
+    }
+
+    checkCudaErrors(cudaDeviceSynchronize());
 
     return scene;
 }
@@ -307,6 +333,32 @@ struct SceneParser {
         return solid;
     }
 
+    Solid parse_model() {
+        match("model");
+        auto path = parse_string();
+        // parse material
+        MaterialType material_type = PLASTIC;
+        if(maybe_match("metal")) {
+            material_type = METAL;
+            match(":");
+        } else if(maybe_match("plastic")) {
+            material_type = PLASTIC; // redundant but for clarity
+            match(":");
+        }
+        auto color = parse_color();
+        Material material = {color, material_type};
+        auto model = load_model(path.c_str());
+        auto solid = Solid{MODEL};
+        if(!model) {
+            printf("Cannot find model '%s' in scene file", path.c_str());
+            solid.model.n_triangles = 0;
+        } else {
+            solid.model = *model;
+            solid.material = material;
+        }
+        return solid;
+    }
+
     Light parse_light() {
         match("light");
         auto position = parse_vec3();
@@ -331,14 +383,12 @@ struct SceneParser {
             } else if(next_token == "plane") {
                 auto plane = parse_plane();
                 result.solids.push_back(plane);
-            /*
             } else if(next_token == "model") {
-                auto model = parse_model();
-                if(!model) {
+                auto solid = parse_model();
+                if(solid.model.n_triangles == 0) {
                     continue;
                 }
-                scene->solids.push_back(model);
-            */
+                result.solids.push_back(solid);
             } else {
                 // printf("encountred token, terminated parsing\n");
                 break;

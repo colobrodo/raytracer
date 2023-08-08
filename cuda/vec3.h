@@ -7,7 +7,6 @@ union Vec3 {
     struct {
         float x, y, z;
     };
-    float xyz[3];
 
     __host__ __device__ inline Vec3 operator+(const Vec3 &other) const {
         return {x + other.x, y + other.y, z + other.z};
