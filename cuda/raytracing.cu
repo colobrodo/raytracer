@@ -1,3 +1,4 @@
+
 #include "stdio.h"
 #include <iostream>
 // for easy time measure
@@ -5,6 +6,7 @@
 
 #include <curand_kernel.h>
 
+#include "config.h"
 #include "cuda_helper.h"
 #include "bitmap.h"
 #include "cmdline.h"
@@ -88,7 +90,7 @@ __global__ void cast(Scene *scene, curandState *rand_state, char *image_data, fl
 
       Ray current_ray = ray;
       float attenuation = 1.0f;
-      for(int k = 50; k > 0; k--) {
+      for(int k = MAX_BOUNCE_DEPTH; k > 0; k--) {
           RaycastResult result;
           if(scene->hit(current_ray, result)) {
               auto hitted_object = result.hitted_object;
@@ -158,8 +160,17 @@ int main(int argc, char *argv[]) {
         printf("failed parsing command line options");
         return 1;
     }
-    int width = 600,
-        height = 600;
+
+    // parse scene from file
+    auto parser_result = parse_scene(options.scene_path);
+    Scene *scene = parser_result.scene;
+    if (scene == nullptr) {
+        printf("Error trying to parse the scene");
+        return 1;
+    }
+    
+    int width = parser_result.width,
+        height = parser_result.height;
 
     // getting the time at the start of the render
     auto start_time = clock();
@@ -173,23 +184,19 @@ int main(int argc, char *argv[]) {
     char *d_image_data;
     checkCudaErrors(cudaMalloc((void**) &d_image_data, image_size));
 
-    // invoke kernels (define grid and block sizes)
-    int tx = 8;
-    int ty = 8;
-    // define number of blocks and threads
-    dim3 blocks(width / tx + 1, height / ty + 1);
-    dim3 threads(tx, ty);
+    // create the streams to operate
+    cudaStream_t streams[N_STREAMS];
+    for (int i = 0; i < N_STREAMS; i ++) {
+        checkCudaErrors(cudaStreamCreate(&streams[i]));
+    }
+
+    // define grid and block sizes
+    dim3 blocks(width / THREAD_SIZE_X + 1, height / THREAD_SIZE_Y + 1);
+    dim3 threads(THREAD_SIZE_X, THREAD_SIZE_Y);
 
     // initialize random state, one curandState for each thread
     curandState *d_rand_state;
     checkCudaErrors(cudaMalloc((void **) &d_rand_state, width * height * sizeof(curandState)));
-
-    // parse scene from file
-    Scene *scene = parse_scene(options.scene_path);
-    if (scene == nullptr) {
-        printf("Error trying to parse the scene");
-        return 1;
-    }
 
     cast<<<blocks, threads>>>(scene, d_rand_state, d_image_data, width, height);
     checkCudaErrors(cudaDeviceSynchronize());

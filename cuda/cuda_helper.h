@@ -1,3 +1,4 @@
+
 #pragma once
 
 // from https://github.com/NVIDIA/cuda-samples/blob/master/Common/helper_cuda.h

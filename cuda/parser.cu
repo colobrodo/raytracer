@@ -1,7 +1,9 @@
+
 #include <iostream>
 #include <fstream>
 #include <string.h>
 
+#include "./parser.h"
 #include "./scene.h"
 #include "./cuda_helper.h"
 
@@ -30,7 +32,7 @@ header := size
 file := header object_declaration*
 */
 
-struct ParserResult {
+struct CPUScene {
     std::vector<Solid> solids;
     std::vector<Light> lights;
 };
@@ -248,11 +250,10 @@ struct SceneParser {
     }
 
 
-    void parse_header() {
-        // TODO: unused for now
+    void parse_header(int *width, int *height) {
         match("size");
-        auto width  = parse_float();
-        auto height = parse_float();
+        *width  = (int) parse_float();
+        *height = (int) parse_float();
     }
 
     Vec3 parse_vec3() {
@@ -366,11 +367,12 @@ struct SceneParser {
         return Light{position, color, 2.f};
     }
 
-    Scene *parse_scene() {
+    ParserResult parse_scene() {
         // main routine that parse the whole file
-        parse_header();
+        int width, height;
+        parse_header(&width, &height);
 
-        ParserResult result;
+        CPUScene result;
         while(true) {
             auto next_token = peek();
 
@@ -394,15 +396,16 @@ struct SceneParser {
                 break;
             }
         }
-        return make_scene(result.solids, result.lights);
+        auto gpu_scene = make_scene(result.solids, result.lights);
+        return ParserResult{width, height, gpu_scene};
     }
 };
 
 
-Scene *parse_scene(const char *filename) {
+ParserResult parse_scene(const char *filename) {
     std::ifstream input_stream(filename);
     SceneParser parser(input_stream);
-    auto scene = parser.parse_scene();
+    auto result = parser.parse_scene();
     input_stream.close();
-    return scene;
+    return result;
 }
