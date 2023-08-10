@@ -5,3 +5,5 @@
 #define N_STREAMS 4
 
 #define MAX_BOUNCE_DEPTH 50
+
+#define USE_GAMMA_CORRECTION 0

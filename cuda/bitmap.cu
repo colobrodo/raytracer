@@ -31,9 +31,6 @@ bool save_bitmap(const char *path, const Bitmap *bitmap) {
     fwrite(header, 1, 14, file);
     fwrite(info_header, 1, 40, file);
 
-    // fputs(bitmap->data, file);
-
-    // TODO: refactor
     for(int i = 0; i < bitmap->height; i++) {
         for(int j = 0; j < bitmap->width; j++) {
             int pixel_index = (i * bitmap->width + j) * 3;

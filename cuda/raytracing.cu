@@ -144,14 +144,13 @@ __global__ void cast(Scene *scene, curandState *rand_state, char *image_data, fl
       color = color + sampled_color / N_SAMPLES;
     }
 
-    // gamma_correction(color);
+    if(USE_GAMMA_CORRECTION) gamma_correction(color);
 
-    //TODO:  parallel reduce for multisampling
     char r, g, b;
     to_hex_color(color, &r, &g, &b);
-    image_data[(int)(x * width + y) * 3]     = r;
-    image_data[(int)(x * width + y) * 3 + 1] = g;
-    image_data[(int)(x * width + y) * 3 + 2] = b;
+    image_data[(int)(y * width + x) * 3]     = r;
+    image_data[(int)(y * width + x) * 3 + 1] = g;
+    image_data[(int)(y * width + x) * 3 + 2] = b;
 }
 
 int main(int argc, char *argv[]) {
