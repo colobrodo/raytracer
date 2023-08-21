@@ -1,12 +1,14 @@
 #pragma once
 
-
 #include "vec3.h"
 
-using Triangle = Vec3[3]; 
+struct Triangle {
+    Vec3 v0;
+    Vec3 v1;
+    Vec3 v2;
+};
 
-struct Box
-{
+struct Box {
     Vec3 min;
     Vec3 max;
 };

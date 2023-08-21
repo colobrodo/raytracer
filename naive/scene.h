@@ -120,9 +120,9 @@ struct Solid {
                 }
                 for(int i = 0; i < model.n_triangles; i++) {
                     auto triangle = model.triangles[i];
-                    Vec3 v0 = triangle[0],
-                        v1 = triangle[1],
-                        v2 = triangle[2];
+                    Vec3 v0 = triangle.v0,
+                        v1 = triangle.v1,
+                        v2 = triangle.v2;
                     Vec3 v0v1 = v1 - v0;
                     Vec3 v0v2 = v2 - v0;
                     Vec3 pvec = ray.direction.cross(v0v2);

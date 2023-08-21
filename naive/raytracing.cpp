@@ -108,18 +108,21 @@ int main(int argc, char *argv[]) {
     if(!parse_command_line(argc, argv, &options)) {
         return 1;
     }
-    int width = 600,
-        height = 600;
-    int image_size = width * height * 3;
-    char* image_data = (char*) malloc(image_size * sizeof(char));
     
-    float zoom = -1.0f;
+    auto parser_result = parse_scene(options.scene_path);
+    auto scene = parser_result.scene;
+    int width = parser_result.width,
+        height = parser_result.height;
 
-    Scene *scene = parse_scene(options.scene_path);
     if (scene == nullptr) {
         printf("Error trying to parse the scene");
         return 1;
     }
+
+    int image_size = width * height * 3;
+    char* image_data = (char*) malloc(image_size * sizeof(char));
+    
+    float zoom = -1.0f;
     
     // getting the time at the start of the render
     auto start_time = clock();

@@ -14,12 +14,11 @@ size 600 600
     # floor plane
     # plane (-7, 0, -3.0) (1, 0, 0) white
     # behind wall
-    # plane (-7, 0, -10.0) (0, 0, 1) metal:white
+    plane (-7, 0, -6.0) (0, 0, 1) white
 
 
 
-model "./models/bunny_lp.obj" metal:(.8, .8, .8)
+model "./models/bunny_lp.obj" white
 
 # light sources
-light (.5, 0, 1) red
-light (0, 0, -2) yellow
+light (0, 0, -2) red

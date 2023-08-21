@@ -1,3 +1,8 @@
 #include "./scene.h"
 
-Scene *parse_scene(const char *filename);
+struct ParserResult {
+    int width, height;
+    Scene *scene;
+};
+
+ParserResult parse_scene(const char *filename);

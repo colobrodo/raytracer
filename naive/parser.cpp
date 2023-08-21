@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string.h>
 
+#include "./parser.h"
 #include "./scene.h"
 
 /*
@@ -189,11 +190,11 @@ struct SceneParser {
     }
 
 
-    void parse_header() {
+    void parse_header(int &width, int &height) {
         // TODO: unused for now
         match("size");
-        auto width  = parse_float();
-        auto height = parse_float();
+        width  = parse_float();
+        height = parse_float();
     }
 
     Vec3 parse_vec3() {
@@ -306,9 +307,10 @@ struct SceneParser {
         return new Light{position, color, 2.f};
     }
 
-    Scene *parse_scene() {
+    ParserResult parse_scene() {
         // main routine that parse the whole file
-        parse_header();
+        int width, height;
+        parse_header(width, height);
 
         auto scene = new Scene();
         while(true) {
@@ -334,16 +336,18 @@ struct SceneParser {
                 break;
             }
         }
-        return scene;
+        ParserResult result = {width, height, scene};
+        return result;
     }
 };
 
 
-Scene *parse_scene(const char *filename) {
+ParserResult parse_scene(const char *filename) {
     std::ifstream input_stream(filename);
     SceneParser parser(input_stream);
-    auto scene = parser.parse_scene();
+    auto result = parser.parse_scene();
+    auto scene = result.scene;
     printf("total solids %i", scene->solids.size());
     input_stream.close();
-    return scene;
+    return result;
 }
