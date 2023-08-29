@@ -151,7 +151,8 @@ Qui segue l'output del comando `nvidia-smi`
 Per testare le performance del programma ho creato una serie di scene di esempio.
 Di seguito i file descrittivi della scena con le rispettive immagini generate.
 
-**TODO: aggiungere immagini e madaffucking scene codeblock** Conclusioni
+**TODO: aggiungere esempio con teiera e riflessività** 
+**TODO: misurare il tempo di esecuzione per la versione naive su colab** 
 ```
 size 600 600
 
@@ -191,18 +192,34 @@ light (-2.1, -.5, -5) yellow
 light (3, 0.6, -5) red
 light (3, -2.5, -5) blue
 ```
-
 ![multisphere](./img/multisphere.bmp)
+
+```
+size 600 600
+
+sphere (0.3, 0, -4.0) .2 red
+sphere (0, -1, -8.0) 1 metal:white
+
+plane (0, -2, -6.0) (0, 1, 0) metal:white
+plane (0, 0, -10) (0, 0, 1) metal:white
+
+# light sources
+light (0, 0, -3) orange
+```
+
+![riflessive](./img/riflessive.bmp)
 
 Ho confrontato il tempo di esecuzione del programma con una versione naive, che non fa uso del parallelismo messo a disposizione di CUDA. 
 Nel tempo profilato sono escluse parti in comune tra le due versioni come la lettura e il parsing di file, o la scrittura del file bitmap. 
 
 | File              | Naive Version | CUDA Version   |
 |-------------------|---------------|----------------|
-| multisphere       | ...           |  2.599377 s    |
+| multisphere       | ...           |  2.363945 s    |
 | simple_sphere     | ...           |  0.083770 s    |
 | cylinder          | ...           |  0.096983 s    |
 | teapot            | ...           |  0.414119 s    |
+| reflective        | ...           |  0.040931 s    |
+
 **TODO: completare tabella**
 
 ## Conclusioni
