@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
     // render loop over each pixel of the image
     for(float x = 0; x < width; x++) {
         for(float y = 0; y < height; y++) {
-            printf("done %f/100 done\r", (x * width + y) / (width * height) * 100);
+            // printf("done %f/100 done\r", (x * width + y) / (width * height) * 100);
             Vec3 color = {0, 0, 0}; 
             const int sample_per_pixel = options.sample_rate;
             for(int sample = 0; sample < sample_per_pixel; sample++) {
@@ -156,6 +156,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    auto end_time = clock();
 
     // save the image data to file
     auto outfile = options.outfile;
@@ -163,7 +164,6 @@ int main(int argc, char *argv[]) {
     save_bitmap(outfile, &bmp);
 
     // report to the user the overall render time
-    auto end_time = clock();
     auto elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
     printf("rendered '%s' in %f seconds", outfile, elapsed_time);
 
