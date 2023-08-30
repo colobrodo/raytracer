@@ -10,10 +10,13 @@
 #include "./parser.h"
 #include "./scene.h"
 
+#define __min(a, b) ((a) > (b) ? (b) : (a))
+#define __max(a, b) ((a) > (b) ? (a) : (b))
+
 float randf() {
     // random utility function
     // returns a random float from 0 to 1 excluded
-    return ((float)rand()) / (float) RAND_MAX; 
+    return ((float)rand()) / (float) RAND_MAX;
 }
 
 Vec3 reflect(const Vec3 &axis, const Vec3 &vector) {
@@ -34,29 +37,32 @@ Vec3 get_bounce_direction(const Vec3 &normal, const Vec3 &looking_direction, Mat
 }
 
 // main recursive function
-Vec3 cast(const Scene &scene, const Ray &ray, int k=10) {
-    if(k <= 0) {
-        // printf("best dark!!");
-        return {0, 0, 0};
-    }
-        
-    
-    Vec3 color = {1, 1, 1};
+Vec3 cast(const Scene &scene, const Ray &ray) {
+    Vec3 color = {0.f, 0.f, 0.f};
 
-    RaycastResult result;
-    if(scene.hit(ray, result)) {
+    float attenuation = 1.0f;
+
+    Ray current_ray = ray;
+    for(int k=10; k > 0; k++) {
+        RaycastResult result;
+        if(!scene.hit(current_ray, result)) {
+            // we don't hit anything, the ray didn't bounce from anywhere so it's pure light
+            color = color + Vec3{1.f, 1.f, 1.f} * attenuation;
+            break;
+        }
+
         auto hitted_object = result.hitted_object;
         Vec3 diffuse_color = {0, 0, 0};
-        
-        if(ray.direction.dot(result.normal) > 0.001) {
+
+        if(current_ray.direction.dot(result.normal) > 0.001) {
             // TODO in place operator
             // reverse the normal when we it a internal surface
             result.normal = result.normal * -1;
         }
+
         // DEBUG:
         // return (result.normal + Vec3{1.f, 1.f, 1.f}) * .5;
 
-        // printf("calculate diffuse color for each light\n");
         for(auto light: scene.lights) {
             // check if some object occlude the light
             auto v = (light->position - result.hit_point).normalize();
@@ -67,7 +73,7 @@ Vec3 cast(const Scene &scene, const Ray &ray, int k=10) {
                 auto distance_from_occluder = occlusion_raycast.hit_point.distance(result.hit_point);
                 if (distance_from_occluder <= distance_from_light) {
                     continue;
-                } 
+                }
                 // here the light is not really occluded, because the object is behind the light
             }
 
@@ -79,24 +85,21 @@ Vec3 cast(const Scene &scene, const Ray &ray, int k=10) {
                 diffuse_color = diffuse_color + light->color * decay_rate * diffuse_effect;
             }
         }
-
-        // printf("make this ray bounce\n");
         auto material = hitted_object->material;
+        float diffusek = material.type == PLASTIC ? .8f : .1f,
+            speculark = material.type == PLASTIC  ? .2f : .9f;
         auto bounce_direction = get_bounce_direction(result.normal, ray.direction, material.type);
-        auto reflected = Ray{result.hit_point, bounce_direction};
-        // printf("now recursive call, bounce direction: %f, %f, %f\n", bounce_direction.x, bounce_direction.y, bounce_direction.z);
-        // printf("normal of hitted point: %f, %f, %f\n", result.normal.x, result.normal.y, result.normal.z);
-        auto bounced_color = cast(scene, reflected, k - 1);
-        // printf("----  after recursive call!\n");
-        float diffusek = material.type == PLASTIC ? .7f : .2f,
-            speculark = material.type == PLASTIC ? .2f : .9f;
-        color = material.pigment * (diffuse_color * diffusek + bounced_color * speculark);
+        color = color + material.pigment * attenuation * (diffuse_color * diffusek);
+        // update ray and specular component for the next iteration
+        current_ray = Ray{result.hit_point, bounce_direction};
+        // attenuate the next bounced ray by the current specular component
+        attenuation *= speculark;
     }
     return color;
 }
 
 void to_hex_color(const Vec3 &color, char *r, char *g, char *b) {
-    // converts a Vec3 float color to a triple int 0-255 rappresentation 
+    // converts a Vec3 float color to a triple int 0-255 rappresentation
     *r = (int)(__min(color.x, 1) * 255.9);
     *g = (int)(__min(color.y, 1) * 255.9);
     *b = (int)(__min(color.z, 1) * 255.9);
@@ -108,7 +111,7 @@ int main(int argc, char *argv[]) {
     if(!parse_command_line(argc, argv, &options)) {
         return 1;
     }
-    
+
     auto parser_result = parse_scene(options.scene_path);
     auto scene = parser_result.scene;
     int width = parser_result.width,
@@ -121,18 +124,20 @@ int main(int argc, char *argv[]) {
 
     int image_size = width * height * 3;
     char* image_data = (char*) malloc(image_size * sizeof(char));
-    
+
     float zoom = -1.0f;
-    
+
+    // how many rays per pixel?
+    const int sample_per_pixel = options.sample_rate;
+
     // getting the time at the start of the render
     auto start_time = clock();
 
     // render loop over each pixel of the image
     for(float x = 0; x < width; x++) {
         for(float y = 0; y < height; y++) {
-            // printf("done %f/100 done\r", (x * width + y) / (width * height) * 100);
-            Vec3 color = {0, 0, 0}; 
-            const int sample_per_pixel = options.sample_rate;
+            //printf("done %f/100 done\r", (x * width + y) / (width * height) * 100);
+            Vec3 color = {0, 0, 0};
             for(int sample = 0; sample < sample_per_pixel; sample++) {
                 float x_offset = randf() - .5,
                       y_offset = randf() - .5;
@@ -156,6 +161,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // measure the end time (without the bitmap writing time)
     auto end_time = clock();
 
     // save the image data to file

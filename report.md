@@ -109,50 +109,21 @@ Per implementare tutte le operazioni vettoriali come somma, prodotto, prodotto s
 L'implementazione della classe è abbastanza ovvia l'unica nota è che tutti i metodi sono stati decorati con le direttive `__host__` e `__device__`.    
 In questo modo questa classe è usabile sia da codice host, sia dalla GPU.    
 
-## Streams (?)
-
-## Pinned Memory
-Per migliorare il tempo di trasferimento dei dati dalla GPU alla CPU con l'uso degli stream, e prevenire la sincronizzazione implicita, il buffer di memoria che contiene i valori dell'immagine è stato allocato nella pinned memory.
-La pinned memory è una porzione della memoria che non è soggetta alla paginazione da parte del sistema operativo.   
-**---- TODO: profilare con e senza pinned memory e linkare la sezione**     
-
 
 # Performance e confronto con la versione sequenziale
 
 ## specifiche tecniche della macchina utilizzata
 
-Non avendo un dispositivo con scheda grafica nvidia per implementare il progetto ho usato la macchina messa a disposizione da google colab: Tesla T4.
-Qui segue l'output del comando `nvidia-smi`
+Non avendo un dispositivo con scheda grafica nvidia per implementare il progetto ho usato la macchina messa a disposizione da google colab: Tesla T4.   
+Ho usato la CPU di default di Google Colab (Intel Xeon CPU, 2 vCPUs (virtual CPUs)) e con 13GB of RAM.
 
-```
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 525.105.17   Driver Version: 525.105.17   CUDA Version: 12.0     |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|                               |                      |               MIG M. |
-|===============================+======================+======================|
-|   0  Tesla T4            Off  | 00000000:00:04.0 Off |                    0 |
-| N/A   36C    P8     9W /  70W |      0MiB / 15360MiB |      0%      Default |
-|                               |                      |                  N/A |
-+-------------------------------+----------------------+----------------------+
-                                                                               
-+-----------------------------------------------------------------------------+
-| Processes:                                                                  |
-|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-|        ID   ID                                                   Usage      |
-|=============================================================================|
-|  No running processes found                                                 |
-+-----------------------------------------------------------------------------+
-```
 
 ## Esempi di test
 
 Per testare le performance del programma ho creato una serie di scene di esempio.
 Di seguito i file descrittivi della scena con le rispettive immagini generate.
 
-**TODO: aggiungere esempio con teiera e riflessività** 
-**TODO: misurare il tempo di esecuzione per la versione naive su colab** 
+**TODO: aggiungere esempio con teiera** 
 ```
 size 600 600
 
@@ -210,17 +181,18 @@ light (0, 0, -3) orange
 ![riflessive](./img/riflessive.bmp)
 
 Ho confrontato il tempo di esecuzione del programma con una versione naive, che non fa uso del parallelismo messo a disposizione di CUDA. 
-Nel tempo profilato sono escluse parti in comune tra le due versioni come la lettura e il parsing di file, o la scrittura del file bitmap. 
+Nel tempo profilato sono escluse parti in comune tra le due versioni come la lettura e il parsing della scena, o la scrittura del file bitmap. 
+Tutte le misurazioni sono state fatte con 32 campionamenti per pixel e un limite di 50 rimbalzi. 
+Ho eseguito ogni esempio 5 volte e ho riportato il tempo medio di esecuzione.
 
 | File              | Naive Version | CUDA Version   |
 |-------------------|---------------|----------------|
-| multisphere       | ...           |  2.363945 s    |
-| simple_sphere     | ...           |  0.083770 s    |
-| cylinder          | ...           |  0.096983 s    |
-| teapot            | ...           |  0.414119 s    |
-| reflective        | ...           |  0.040931 s    |
+| multisphere       | 36.815982 s   |  2.363945 s    |
+| simple_sphere     | 4.7000665 s   |  0.083770 s    |
+| cylinder          | 7.079212 s    |  0.096983 s    |
+| teapot            | 40.938330 s   |  0.414119 s    |
+| reflective        | 1.687157 s    |  0.040931 s    |
 
-**TODO: completare tabella**
 
 ## Conclusioni
-Il problema di raytracing qui presentato beneficia dell'alto grado di parallelismo del modello CUDA, riuscendo a fornire anche uno speedup di 10x in alcuni casi.
+Il problema di raytracing qui presentato beneficia dell'alto grado di parallelismo del modello CUDA, riuscendo a fornire speedup molto elevati al di sopra del 50x in alcuni casi.
