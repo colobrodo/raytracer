@@ -37,13 +37,13 @@ Vec3 get_bounce_direction(const Vec3 &normal, const Vec3 &looking_direction, Mat
 }
 
 // main recursive function
-Vec3 cast(const Scene &scene, const Ray &ray) {
+Vec3 cast(const Scene &scene, const Ray &ray, int k=10) {
     Vec3 color = {0.f, 0.f, 0.f};
 
     float attenuation = 1.0f;
 
     Ray current_ray = ray;
-    for(int k=10; k > 0; k++) {
+    for(; k > 0; k--) {
         RaycastResult result;
         if(!scene.hit(current_ray, result)) {
             // we don't hit anything, the ray didn't bounce from anywhere so it's pure light
@@ -88,7 +88,7 @@ Vec3 cast(const Scene &scene, const Ray &ray) {
         auto material = hitted_object->material;
         float diffusek = material.type == PLASTIC ? .8f : .1f,
             speculark = material.type == PLASTIC  ? .2f : .9f;
-        auto bounce_direction = get_bounce_direction(result.normal, ray.direction, material.type);
+        auto bounce_direction = get_bounce_direction(result.normal, current_ray.direction, material.type);
         color = color + material.pigment * attenuation * (diffuse_color * diffusek);
         // update ray and specular component for the next iteration
         current_ray = Ray{result.hit_point, bounce_direction};

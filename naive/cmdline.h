@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <stdlib.h>
@@ -17,7 +18,7 @@ bool parse_command_line(int argc, char *argv[], CommandLineOptions *options) {
         printf("\traytracing.exe 'path to scene' 'out path to bitmap' [--sample-rate rate]\n");
         printf(error);
     };
-    
+
     if(argc < 3) {
         // TODO: add help string
 
@@ -36,23 +37,26 @@ bool parse_command_line(int argc, char *argv[], CommandLineOptions *options) {
             return false;
         }
         auto argument = argv[argument_index];
-        *value = atoi(argument); 
+        *value = atoi(argument);
         return true;
     };
 
     for(;argument_index < argc; argument_index++) {
         auto option = argv[argument_index];
+        /* // no supported argument parameter for now
         if(strcmp(option, "--sample-rate") == 0) {
             if(!read_int(&options->sample_rate)) {
                 print_error("Missing value for argument \"--sample-rate\" needed an integer\n");
                 return false;
             }
-        } else {
+        } else
+        */
+         {
             print_error("");
             printf("Unknow argument option \"%s\"\n", option);
             return false;
         }
     }
-    
+
     return true;
 }

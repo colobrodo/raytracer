@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <cmath>
@@ -5,6 +6,10 @@
 
 #include "./vec3.h"
 #include "./model.h"
+
+
+#define __min(a, b) ((a) > (b) ? (b) : (a))
+#define __max(a, b) ((a) > (b) ? (a) : (b))
 
 #define EPSILON (0.e-3f)
 
@@ -95,7 +100,7 @@ struct Solid {
 
                 if(discriminant < 0) {
                     return -1;
-                } 
+                }
                 auto t = (-b - sqrt(discriminant) ) / (2.f * a);
                 normal = ray.at(t) - sphere.center.normalize();
                 return t;
@@ -138,12 +143,12 @@ struct Solid {
                     Vec3 qvec = tvec.cross(v0v1);
                     auto v = ray.direction.dot(qvec) * invDet;
                     if (v < 0 || u + v > 1) continue;
-                    
+
                     auto t = v0v2.dot(qvec) * invDet;
                     if(t < 0) {
                         continue;
                     }
-                    
+
                     // for first iteration
                     if(t < closest_t || closest_t < 0) {
                         normal = v0.cross(v1).normalize();
@@ -192,7 +197,7 @@ struct Scene {
     bool hit(const Ray &ray, RaycastResult &result) const {
         float closest_t = INFINITY;
         Solid *closest_object = nullptr;
-        Vec3 normal_of_closest_object; 
+        Vec3 normal_of_closest_object;
         for(auto solid: solids) {
             Vec3 normal;
             auto t = solid->hit(ray, normal);

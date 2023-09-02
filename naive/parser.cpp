@@ -18,7 +18,7 @@ material_type := 'plastic' | 'metal'
 material := (material_type ':')? color
 
 sphere := 'sphere' vec3 float material
-light := 'light' vec3 color 
+light := 'light' vec3 color
 model := 'model' string
 
 object_declaration := sphere | light
@@ -26,15 +26,15 @@ object_declaration := sphere | light
 size_decl := 'size' float float
 header := size
 
-file := header object_declaration* 
+file := header object_declaration*
 */
 
 struct SceneParser {
     std::istream &stream;
     int line   = 1;
     int column = 0;
-    // each time we look peek a new token we consume the character from the string, 
-    // so if the user would look ahead (without consuming the token) 
+    // each time we look peek a new token we consume the character from the string,
+    // so if the user would look ahead (without consuming the token)
     // we save the just-seen token that is no more available from the stream
     std::string buffer = "";
 
@@ -86,7 +86,7 @@ struct SceneParser {
         next_token = next_token.substr(1, next_token.size() - 2);
         return next_token;
     }
-    
+
     std::string pop() {
         // check if we already peeked without eating the next token
         if(!buffer.empty()) {
@@ -96,15 +96,15 @@ struct SceneParser {
         }
 
         eat_spaces();
-        std::string result; 
-        char current_char = stream.peek();        
+        std::string result;
+        char current_char = stream.peek();
         // add the current char to the result string and advance
         auto enqueque = [&] () {
             result.append(1, current_char);
             advance();
             current_char = stream.peek();
         };
-        
+
         switch (current_char)
         {
             // if char is a symbol return it
@@ -127,7 +127,7 @@ struct SceneParser {
                     }
                 }
                 break;
-            // float parsing 
+            // float parsing
             case '-':
             case '+':
             case '.':
@@ -141,7 +141,7 @@ struct SceneParser {
                 }
                 if(current_char == '.') {
                     enqueque();
-                    // TODO: here we should check if we already have encountred a digit before the dot 
+                    // TODO: here we should check if we already have encountred a digit before the dot
                     //       cause '.' is a valid float for now
                     while(isdigit(current_char)) enqueque();
                 }
@@ -168,12 +168,12 @@ struct SceneParser {
     }
 
     void match(char *expected_lexem) {
-        // match primitive: consume a lexem from the list and if is different 
+        // match primitive: consume a lexem from the list and if is different
         // from the expected one raise an error
         auto next_lexem = pop();
         if(next_lexem != expected_lexem) {
             printf("error parsing the scene file: expected '%s', getting '%s' instead at %i:%i\n", expected_lexem, next_lexem.c_str(), line, column);
-            _ASSERT(false);
+            // _ASSERT(false);
         }
     }
 
@@ -315,7 +315,7 @@ struct SceneParser {
         auto scene = new Scene();
         while(true) {
             auto next_token = peek();
-                        
+
             if(next_token == "light") {
                 auto light = parse_light();
                 scene->lights.push_back(light);
@@ -347,7 +347,7 @@ ParserResult parse_scene(const char *filename) {
     SceneParser parser(input_stream);
     auto result = parser.parse_scene();
     auto scene = result.scene;
-    printf("total solids %i", scene->solids.size());
+    printf("total solids %i", (int)scene->solids.size());
     input_stream.close();
     return result;
 }

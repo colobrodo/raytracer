@@ -1,7 +1,10 @@
+
+// to use default implementation of tiny obj loader
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "../include/tiny_obj_loader.h"
+#include "./include/tiny_obj_loader.h"
 
 #include "./model.h"
+
 
 Model *load_model(const char *filename) {
     tinyobj::attrib_t attributes;

@@ -16,7 +16,7 @@ union Vec3 {
     inline Vec3 operator-(const Vec3 &other) const {
         return {x - other.x, y - other.y, z - other.z};
     }
-    
+
     inline Vec3 operator-() const {
         return {-x, -y, -z};
     }
@@ -59,7 +59,7 @@ union Vec3 {
     inline float dot(const Vec3 &other) const {
         return x * other.x + y * other.y + z * other.z;
     }
-    
+
     float length() const {
         return sqrt(x * x + y * y + z * z);
     }
