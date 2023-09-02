@@ -142,14 +142,15 @@ light (0, 0, 0) red
 
 dove `(0, 0, 0)` è la posizione composta da tre numeri decimali, e `red` è il colore che si può anche descrivere come vettore rgb (`(1, 0, 0)` in questo caso).    
 
-Per aggiungere le geometrie di base:
+Per aggiungere sfere:
 ```
 sphere (-2.5, -2.5, -10) .5 white
 ```
 
-Dopo la direttiva `sphere` segue la posizione all'interno della scena, poi il suo raggio e infine il colore del materiale se non diversamente specificato il materiale è plastico, per specificare un materiale metallico si può scrivere `metal:colore`
+Dopo la direttiva `sphere` segue la posizione all'interno della scena, poi il suo raggio e infine il colore del materiale.   
+Se non diversamente specificato il materiale è plastico, per specificare un materiale metallico si può scrivere `metal:colore`
 
-Per descrivere i piani, basta specificare `plane` il suo centro, seguita della normale del piano e infine la descrizione del materiale 
+Per descrivere i piani, basta specificare `plane`, poi il suo centro, seguita della normale del piano e infine la descrizione del materiale 
 es.   
 ```
 plane (-7, 0, -4) (1, 0, 0) metal:white
@@ -163,10 +164,12 @@ model "stanford_bunny.obj"
 
 # Utilizzo del modello di programmazione CUDA
 ## Suddivisione dei thread
-Per sua natura un algoritmo di raytracing è un problema altamente parallelizzabile: ogni pixel viene calcolato indipendentemente dagli altri. Per questo motivo ho deciso di assegnare un pixel a un thread.   
+Per sua natura un algoritmo di raytracing è un problema altamente parallelizzabile:     
+ogni pixel viene calcolato indipendentemente dagli altri, per questo motivo ho deciso di assegnare un thread a un pixel.   
 Per sfruttare al meglio il modello di programmazione CUDA ho deciso di suddividere i thread in blocchi corrispondenti a sezioni di pixel 8x8 questo perchè intuitivamente, raggi vicini tra loro collideranno più probabilmente con lo stesso oggetto e anche la direzione del loro rimbalzo sarà più simile rispetto ai raggi più distanti.   
 Se due raggi collidono con gli stessi oggetti a ogni rimbalzo i loro threads avranno lo stesso percorso di esecuzione, quindi minimizzare il numero di collisioni diverse tra i thread dello stesso blocco significa minimizzare la divergenza.   
 Questa suddivisione non sempre riesce a beneficiare di questo principio: se si collide con un oggetto con materiale diffusivo, la direzione di rimbalzo viene campionata secondo una distribuzione uniforme.   
+è quindi impossibile prevedere dopo quel rimbalzo se i raggi dei rispettivi thread avranno direzione simile.    
 Il thread gestisce anche l'oversampling del pixel calcolando il colore per ogni campione e ottenendo infine una media.   
 
 
@@ -177,19 +180,18 @@ In questo modo questa classe è usabile sia da codice host, sia dalla GPU.
 Questa classe è usata sia per rappresentare vettori, punti nello spazio e colori rgb.   
 
 ## Allocazione della scena
-La scena è stata allocata usando la unified memory.
-**---- TODO: magari specificare struct scena**     
-L'oggetto scena contiene un array di oggetti che rappresentano i solidi nella scena (modelli, sfere, piani) e un array contenente i punti luce.  
+L'oggetto scena contiene un array di oggetti che rappresentano tutti i solidi presenti (modelli, sfere, piani) e un array contenente i punti luce.  
+Per semplicità 1uesti dati sono allocati usando la unified memory.   
 Dopo il parsing del file calcolo quale è la dimensione della memoria richiesta sia dalla scena che dai suoi elementi, e alloco un area di memoria contigua.   
-All'inizio dell'area di memoria si trova l'oggetto scena con le dimensioni e i puntatori ai due array.   
-A seguire è allocato prima l'array di solidi e successivamente i punti luce.
-Nel caso particolare di modelli anche i triangoli degli stessi devono essere allocati: tengo conto anche della loro dimensione occupata quando istanzio la unified memory e li posiziono dopo l'array di solidi.      
-Gli oggetti vengono allocati tutti in un area di memoria contigua per minimizzare le cache misses.
+All'inizio dell'area di memoria si trova l'oggetto scena che contiene le dimensioni e i puntatori ai due array (solidi e punti luce).   
+A seguire è allocato prima l'array di solidi e successivamente quello contenente i punti luce.   
+Nel caso particolare di modelli anche i triangoli degli stessi devono essere allocati: tengo conto anche della loro dimensione quando istanzio la unified memory e li posiziono dopo l'array di solidi.      
+Gli oggetti sono allocati tutti in un area di memoria contigua per minimizzare le cache misses.   
 
 ## Uso di cu_rand per materiale plastico
 Nel kernel in oggetto ci sono due casi dove è necessario l'uso di numeri generati in maniera pseudocasuale:   
 1. Per il materiale di tipo diffusivo, la direzione del rimbalzo viene calcolata campionando la semisfera attorno alla normale.   
-2. Durante l'oversampling per determinare la variazione che il raggio deve fare rispetto agli altri sample.
+2. Durante l'oversampling, per determinare la variazione in direzione del raggio agli altri sample.
 
 Per il campionamento casuale ho usato la libreria `curand`, che consente di generare numeri pseudocasuali nel codice device.   
 Ogni kernel prende come parametro un puntatore (costante, sola lettura) all'oggetto scena, un buffer di memoria contenente tutti i pixel dell'immagine con le sue dimensioni (larghezza e altezza) e un oggetto `curandState`.   
@@ -198,32 +200,19 @@ l'oggetto curandState viene inizializzato con lo stesso seed su ogni thread ma c
 
 # Performance e confronto con la versione sequenziale
 
-## specifiche tecniche della macchina utilizzata
+## Specifiche tecniche della macchina utilizzata
 
 Non avendo un dispositivo con scheda grafica nvidia per implementare il progetto ho usato la macchina messa a disposizione da Google Colab:   
-GPU Tesla T4   
-CPU Intel Xeon CPU, 2 vCPUs (virtual CPUs)   
-con 13GB of RAM.   
+GPU: Tesla T4   
+CPU: Intel Xeon CPU 2.20GHz, 2 vCPUs (virtual CPUs)   
+RAM: 13GB.   
 
 
 ## Esempi di test
 
-Per testare le performance del programma ho creato una serie di scene di esempio.
+Per testare le performance del programma ho creato 5 scene di esempio.
 Di seguito i file descrittivi della scena con le rispettive immagini generate.
 
-### Cylinder
-```
-size 600 600
-
-model "cylinder.obj" white
-plane (0, 0, -6.0) (0, 0, 1) white
-plane (0, -2, -6.0) (0, 1, 0) white
-light (0, 0, -2) blue
-```
-
-Il modello di cilindo utilizzato contiene 128 triangoli.
-
-![cylinder](./img/cylinder.bmp)
 
 ### Simple Sphere
 
@@ -242,6 +231,20 @@ light (0, 2, -3) yellow
 ```
 
 ![sphere](./img/simple_sphere.bmp)
+
+### Cylinder
+```
+size 600 600
+
+model "cylinder.obj" white
+plane (0, 0, -6.0) (0, 0, 1) white
+plane (0, -2, -6.0) (0, 1, 0) white
+light (0, 0, -2) blue
+```
+
+Il modello di cilindo utilizzato contiene 128 triangoli.
+
+![cylinder](./img/cylinder.bmp)
 
 ### Multisphere
 ```
@@ -291,22 +294,22 @@ light (0, 0, -1) green
 Ho confrontato il tempo di esecuzione del programma con una versione naive, che non fa uso del parallelismo messo a disposizione di CUDA. 
 La versione naive è stata compilata con `gcc` con l'opzione `-O2` per ottenere un codice ottimizzato.   
 Ho usato invece `nvcc` per compilare l'implementazione CUDA.    
-Nel tempo profilato sono escluse parti in comune tra le due versioni come la lettura e il parsing della scena, o la scrittura del file bitmap. 
+Nel tempo profilato sono escluse parti in comune tra le due versioni come la lettura e il parsing della scena, o la scrittura del file bitmap.    
 Tutte le misurazioni sono state prese con 32 campionamenti per pixel e un limite di 50 rimbalzi. 
 Ho eseguito ogni esempio 5 volte e ho riportato il tempo medio di esecuzione.
 
 | File              | Naive Version | CUDA Version   |
 |-------------------|---------------|----------------|
-| multisphere       | 36.815982 s   |  2.363945 s    |
 | simple_sphere     | 4.7000665 s   |  0.083770 s    |
 | cylinder          | 7.079212 s    |  0.096983 s    |
+| multisphere       | 36.815982 s   |  2.363945 s    |
+| riflessive        | 1.687157 s    |  0.040931 s    |
 | teapot            | 40.938330 s   |  2.414119 s    |
-| reflective        | 1.687157 s    |  0.040931 s    |
 
 
 ## Conclusioni
 Il problema di raytracing qui presentato beneficia dell'alto grado di parallelismo del modello CUDA, riuscendo a fornire speedup molto elevati,  anche al di sopra del 50x in alcuni casi.
 Il grande divario ottenuto tra la due implementazioni è dovuto anche al fatto che la versione naive non usa alcun tipo di parallelizzazione, quando potrebbe beneficiare ampiamente dell'uso di thread o SIMD a livello di istruzione.   
 E' possibile implementare diverse ottimizzazioni che possono migliorare sia la versione naive che quella CUDA come ad esempio strutture dati di partizione dello spazio (OctTree, BVH ecc...).   
-L'unica accortezza che ho preso in questa direzione è di include un bounding box (AABB) per ogni modello, in modo da non dover controllare ogni triangolo anche quando la mesh non è in direzione del raggio.   
+L'unica accortezza che ho preso in questa direzione è di include un bounding box (AABB) per ogni modello, in modo da non dover controllare ogni triangolo anche quando la mesh si trova distante rispetto al raggio.   
  
