@@ -153,7 +153,7 @@ struct Solid {
 
                     // for first iteration
                     if(t < closest_t || closest_t < 0) {
-                        normal = v0.cross(v1).normalize();
+                        normal = v2.cross(v1).normalize();
                         closest_t = v0v2.dot(qvec) * invDet;
                     }
                 }

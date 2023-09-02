@@ -4,6 +4,8 @@
 
 #define N_STREAMS 4
 
+#define N_SAMPLES 32
 #define MAX_BOUNCE_DEPTH 50
-
 #define USE_GAMMA_CORRECTION 0
+
+#define SEED 314159

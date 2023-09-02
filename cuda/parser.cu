@@ -83,8 +83,6 @@ Scene *make_scene(std::vector<Solid> solids, std::vector<Light> lights) {
         start_triangles_memory += solid.model.n_triangles;
     }
 
-    checkCudaErrors(cudaDeviceSynchronize());
-
     return scene;
 }
 

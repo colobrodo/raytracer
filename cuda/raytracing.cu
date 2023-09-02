@@ -17,8 +17,6 @@
 #define __max(a, b) ((a) >= (b) ? (a) : (b))
 #define __min(a, b) ((a) <= (b) ? (a) : (b))
 
-#define N_SAMPLES 32
-
 
 __host__ __device__ Vec3 reflect(const Vec3 &axis, const Vec3 &vector) {
    return vector - axis * 2 * vector.dot(axis);
@@ -59,16 +57,15 @@ __device__ void gamma_correction(Vec3 &color) {
     color.z = powf(color.z, GAMMA);
 }
 
-__global__ void cast(Scene *scene, curandState *rand_state, char *image_data, float width, float height) {
+__global__ void cast(Scene const *scene, curandState *rand_state, char *image_data, float width, float height, float offset) {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int y = offset + threadIdx.y + blockIdx.y * blockDim.y;
     if(x >= width || y >= height) return;
 
     // initialize random state
     int pixel_index = y * width + x;
     curandState local_rand_state = rand_state[pixel_index];
-    curand_init(1984, pixel_index, 0, &local_rand_state);
-
+    curand_init(SEED, pixel_index, 0, &local_rand_state);
 
     // camera variables (fixed at origin)
     Vec3 cam_position = {0.0f, 0.0f, 0.0f};
@@ -86,7 +83,6 @@ __global__ void cast(Scene *scene, curandState *rand_state, char *image_data, fl
       float u = (x + x_offset - width / 2) / width,
             v = (y + y_offset - height / 2) / height;
       Ray ray = {cam_position, Vec3{u, v, zoom} - cam_position};
-
 
       Ray current_ray = ray;
       float attenuation = 1.0f;
@@ -167,7 +163,7 @@ int main(int argc, char *argv[]) {
         printf("Error trying to parse the scene");
         return 1;
     }
-    
+
     int width = parser_result.width,
         height = parser_result.height;
 
@@ -177,31 +173,62 @@ int main(int argc, char *argv[]) {
     int n_pixels = width * height * 3;
     int image_size = n_pixels * sizeof(char);
     // allocate memory for the image on the host
-    char *image_data = (char*) malloc(image_size);
+    // char *image_data = (char*) malloc(image_size);
+    char *image_data;
+    checkCudaErrors(cudaMallocHost((void**) &image_data, image_size));
 
     // allocate image data in device memory
     char *d_image_data;
     checkCudaErrors(cudaMalloc((void**) &d_image_data, image_size));
 
-    // create the streams to operate
-    cudaStream_t streams[N_STREAMS];
-    for (int i = 0; i < N_STREAMS; i ++) {
-        checkCudaErrors(cudaStreamCreate(&streams[i]));
-    }
-
-    // define grid and block sizes
-    dim3 blocks(width / THREAD_SIZE_X + 1, height / THREAD_SIZE_Y + 1);
-    dim3 threads(THREAD_SIZE_X, THREAD_SIZE_Y);
-
-    // initialize random state, one curandState for each thread
+    // allocate random states, one curandState for each thread
     curandState *d_rand_state;
     checkCudaErrors(cudaMalloc((void **) &d_rand_state, width * height * sizeof(curandState)));
 
-    cast<<<blocks, threads>>>(scene, d_rand_state, d_image_data, width, height);
-    checkCudaErrors(cudaDeviceSynchronize());
+    // enforce use of L1 cache, instead of smem since we don't use the last one
+    // checkCudaErrors(cudaFuncSetCacheConfig(cast, cudaFuncCachePreferL1));
 
-   	// Copy output (results) from GPU buffer to host memory.
-	  checkCudaErrors(cudaMemcpy(image_data, d_image_data, image_size, cudaMemcpyDeviceToHost));
+    // create and initialize stop event for stream synchronization
+    cudaEvent_t stop_event;
+    checkCudaErrors(cudaEventCreate(&stop_event));
+
+    // create the streams to operate
+    cudaStream_t streams[N_STREAMS];
+    for (int i = 0; i < N_STREAMS; i++) {
+        checkCudaErrors(cudaStreamCreate(&streams[i]));
+    }
+
+    // the image is divide in horizontal strip where each strip is populated by
+    // one different stream
+    int strip_size = height / N_STREAMS;
+    auto bytes_per_strip = width * strip_size * 3 * sizeof(char);
+
+    // define grid and block sizes
+    dim3 blocks(width / THREAD_SIZE_X + 1, strip_size / THREAD_SIZE_Y + 1);
+    dim3 threads(THREAD_SIZE_X, THREAD_SIZE_Y);
+
+    for (int i = 0; i < N_STREAMS; i++) {
+        int offset = i * strip_size;
+        cast<<<blocks, threads, 0, streams[i]>>>(scene, d_rand_state, d_image_data, width, height, offset);
+    }
+
+    for (int i = 0; i < N_STREAMS; i++) {
+        int offset = i * strip_size;
+        // Copy output (results) from GPU buffer to host memory.
+        auto bytes_offset = i * bytes_per_strip;
+        checkCudaErrors(cudaMemcpyAsync(&image_data[bytes_offset], &d_image_data[bytes_offset], bytes_per_strip, cudaMemcpyDeviceToHost, streams[i]));
+    }
+
+    // synchronize all streams on stop event
+    checkCudaErrors(cudaEventRecord(stop_event, 0));
+    checkCudaErrors(cudaEventSynchronize(stop_event));
+
+    for (int i = 0; i < N_STREAMS; i++) {
+        checkCudaErrors(cudaStreamDestroy(streams[i]));
+    }
+
+    // the reported time do not include saving images and dealing with io
+    auto end_time = clock();
 
     // save the image data to file
     auto outfile = options.outfile;
@@ -209,12 +236,11 @@ int main(int argc, char *argv[]) {
     save_bitmap(outfile, &bmp);
 
     // report to the user the overall render time
-    auto end_time = clock();
     auto elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
     printf("rendered '%s' in %f seconds", outfile, elapsed_time);
 
     // free resources
-    free(image_data);
+    // free(image_data);
     // free cuda resources
     checkCudaErrors(cudaFree(d_image_data));
     checkCudaErrors(cudaFree(scene));
