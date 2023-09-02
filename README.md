@@ -4,8 +4,7 @@ Ho sviluppato un raytracer in due versioni: una completamente sequenziale e una 
 
 ## Immagini Generate
 Qui di seguito alcune immagini generate:
-
-
+git 
 ![multisphere](./img/multisphere.bmp)
 
 ![sphere](./img/simple_sphere.bmp)
